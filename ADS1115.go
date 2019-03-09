@@ -4,10 +4,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strings"
+	"time"
 
 	"golang.org/x/exp/io/i2c"
 )
 
+// ADS1115 ...
 type ADS1115 struct {
 	Device   *i2c.Device
 	dataRate uint16
@@ -15,22 +17,29 @@ type ADS1115 struct {
 	channel  uint16
 }
 
-// NewADS1115Device creates a connection to the I2C device on the given address.
-func NewADS1115Device(name string, address int) (*ADS1115, error) {
-	adc := new(ADS1115)
+// NewConnection creates a connection to the I2C device on the given address.
+func NewConnection(name string, address int) (*i2c.Device, error) {
 	name = strings.ToLower(name)
 	device, err := i2c.Open(&i2c.Devfs{Dev: fmt.Sprintf("/dev/%v", name)}, address)
 	if err != nil {
-		return adc, err
+		return nil, err
 	}
-	adc.Device = device
-	return adc, nil
+	return device, nil
 }
 
+// NewADS1115Device creates a new instance of the ADS1115 struct.
+func NewADS1115Device(device *i2c.Device) *ADS1115 {
+	adc := new(ADS1115)
+	adc.Device = device
+	return adc
+}
+
+// Gain sets the voltage gain of the device.
 func (ads *ADS1115) Gain(gain AmplifierGain) {
 	ads.gain = uint16(gain)
 }
 
+// DataRate sets the datarate of the channel
 func (ads *ADS1115) DataRate(rate DataRate) {
 	ads.dataRate = uint16(rate)
 }
@@ -65,8 +74,8 @@ func (ads *ADS1115) Read() (float32, error) {
 		return float32(-1), err
 	}
 
-	// delay := 1
-	// time.Sleep(time.Duration(delay) * time.Millisecond)
+	delay := 8
+	time.Sleep(time.Duration(delay) * time.Millisecond)
 
 	var result = make([]byte, 2)
 	err = ads.Device.ReadReg(ADS1115RegisterConversionConfig, result)
@@ -76,14 +85,15 @@ func (ads *ADS1115) Read() (float32, error) {
 	val := (uint32(result[0]) << 8) | uint32(result[1])
 	var data float32
 	if val > 0x7FFF {
-		data = float32((val-0xFFFF)*6144) / 32768.0
+		data = float32((val-0xFFFF)*6144/1000) / 32768.0
 	} else {
-		data = float32(val*6144) / 32768.0
+		data = float32(val*6144/1000) / 32768.0
 	}
 	result = make([]byte, 2)
 	return data, nil
 }
 
+// Close should be called when the device will no longer be used
 func (ads *ADS1115) Close() error {
 	return ads.Device.Close()
 }
