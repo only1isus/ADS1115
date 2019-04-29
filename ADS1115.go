@@ -3,7 +3,6 @@ package ADS1115
 import (
 	"encoding/binary"
 	"fmt"
-	"i2c/consts"
 	"strings"
 	"time"
 
@@ -123,7 +122,7 @@ func (ads *ADS1115) Read(channel int) (float32, error) {
 	time.Sleep(time.Duration(1000000/ads.dataRate+100) * time.Microsecond)
 
 	result := make([]byte, 2)
-	err = ads.Device.ReadReg(consts.ADS1115RegisterConversionConfig, result)
+	err = ads.Device.ReadReg(ADS1115RegisterConversionConfig, result)
 	if err != nil {
 		return float32(-1), err
 	}
